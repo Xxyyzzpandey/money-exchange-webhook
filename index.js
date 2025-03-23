@@ -6,21 +6,8 @@ const app=express();
 app.use(express.json());
 app.use(cors())
 
-async function validationCheck(id){
-    const userid=id;
-    const receiver = await prisma.balance.findUnique({
-        where: { userid: userid },
-      });
-  
-      if (!receiver) {
-        return res.status(400).json({ msg: "Receiver does not exist." });
-      }
-}
-
 app.post("/hdfcWebhook", async (req, res) => {
     const paymentinfo=req.body;
-    console.log(paymentinfo)
-    console.log(paymentinfo.senderid,paymentinfo.receiverid,paymentinfo.amount)
     if(!paymentinfo.senderid || !paymentinfo.amount || !paymentinfo.receiverid){
         return res.status(401).json({msg:"credentials are required"});
     }
@@ -38,7 +25,6 @@ app.post("/hdfcWebhook", async (req, res) => {
             return res.status(403).json({ msg: "Sender has insufficient funds." });
           }
       
-          // Check if receiver exists
           userid=paymentinfo.receiverid;
           const receiver = await prisma.balance.findUnique({
             where: { userid: userid },
@@ -49,30 +35,28 @@ app.post("/hdfcWebhook", async (req, res) => {
           }
 
         const transaction = await prisma.$transaction([
-            // Update the sender's balance
-            prisma.Balance.updateMany({
+            prisma.balance.updateMany({
               where: {
                 userid: paymentinfo.senderid,
               },
               data: {
                 amount: {
-                  decrement: paymentinfo.amount, // Decrease the sender's balance by the amount
+                  decrement: paymentinfo.amount, 
                 },
               },
             }),
       
-            // Update the receiver's balance
             prisma.Balance.updateMany({
               where: {
                 userid: paymentinfo.receiverid,
               },
               data: {
                 amount: {
-                  increment: paymentinfo.amount, // Increase the receiver's balance by the amount
+                  increment: paymentinfo.amount,
                 },
               },
             }),
-            prisma.Transation.create({
+            prisma.transation.create({
                 data: {
                     amount :paymentinfo.amount,
                     senderid :paymentinfo.senderid,
@@ -109,17 +93,17 @@ app.post("/addmoney",async(req,res)=>{
             res.status(401).send("user does not exist");
           }
           const transaction = await prisma.$transaction([
-          prisma.Balance.updateMany({
+          prisma.balance.updateMany({
             where: {
               userid: info.userid,
             },
             data: {
               amount: {
-                increment: info.amount, // Increase the receiver's balance by the amount
+                increment: info.amount, 
               },
             },
           }),
-          prisma.Transation.create({
+          prisma.transation.create({
             data: {
                 amount :info.amount,
                 senderid :info.userid,
@@ -140,6 +124,6 @@ app.post("/addmoney",async(req,res)=>{
     }
 })
 
-app.listen(3000,()=>{
+app.listen(process.env.PORT,()=>{
   console.log("listening at 3000")
 })
